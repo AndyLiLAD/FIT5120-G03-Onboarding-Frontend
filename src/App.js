@@ -18,6 +18,17 @@ const getUvColor = (uvIndex) => {
     if (uvIndex < 11) return "#F44336"; // Red (Very High)
     return "#9C27B0";  // Purple (Extreme)
 };
+
+// Function to determine sunscreen reapplication time
+const getSunscreenTime = (uvIndex) => {
+    if (uvIndex === 0) return "No need to use sunscreen.";
+    if (uvIndex < 3) return "Reapply every 2 hours.";
+    if (uvIndex < 6) return "Reapply every 1.5 hours.";
+    if (uvIndex < 8) return "Reapply every 1 hour.";
+    if (uvIndex < 11) return "Reapply every 45 minutes.";
+    return "Reapply every 30 minutes.";
+};
+
 function App() {
     const [postcode, setPostcode] = useState("");
     const [uvIndex, setUvIndex] = useState(null);
@@ -27,8 +38,10 @@ function App() {
     const [loading, setLoading] = useState(false);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMessage, setSnackbarMessage] = useState("");
+
     // Check if user is on a mobile screen
     const isMobile = useMediaQuery("(max-width:600px)");
+
     useEffect(() => {
         let interval;
         if (secondsLeft > 0) {
@@ -49,11 +62,11 @@ function App() {
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    const {latitude, longitude} = position.coords;
+                    const { latitude, longitude } = position.coords;
                     fetch("http://127.0.0.1:5000/api/uv-index-location", {
                         method: "POST",
-                        headers: {"Content-Type": "application/json"},
-                        body: JSON.stringify({lat: latitude, lon: longitude})
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ lat: latitude, lon: longitude })
                     })
                         .then(response => response.json())
                         .then(data => {
@@ -85,8 +98,8 @@ function App() {
 
         fetch("http://127.0.0.1:5000/api/uv-index", {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({postcode})
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ postcode })
         })
             .then(response => response.json())
             .then(data => {
@@ -101,24 +114,11 @@ function App() {
             .finally(() => setLoading(false));
     };
 
-    const startReminder = () => {
-        fetch("http://127.0.0.1:5000/api/set-reminder", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({email, uv_index: uvIndex})
-        })
-            .then(response => response.json())
-            .then(data => {
-                setSecondsLeft(data.time * 60);
-            });
-    };
-
-
     return (
         <ThemeProvider theme={theme}>
             <Container
                 maxWidth="sm"
-                sx={{mt: isMobile ? 3 : 5, textAlign: "center", padding: isMobile ? 2 : 4}}
+                sx={{ mt: isMobile ? 3 : 5, textAlign: "center", padding: isMobile ? 2 : 4 }}
             >
                 <Typography variant={isMobile ? "h5" : "h4"} gutterBottom>
                     🌞 UV Index Finder
@@ -139,56 +139,56 @@ function App() {
                         }}
                     >
                         <Typography variant="h6">UV Index: {uvIndex}</Typography>
+                        <Typography variant="body1" sx={{ mt: 1 }}>
+                            {getSunscreenTime(uvIndex)}
+                        </Typography>
                     </Box>
                 )}
 
                 {/* Error Message */}
-                {error && <Alert severity="error" sx={{mt: 2}}>{error}</Alert>}
+                {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
                 {/* Loading Indicator */}
-                {loading && <CircularProgress sx={{mt: 2}}/>}
+                {loading && <CircularProgress sx={{ mt: 2 }} />}
 
                 {/* Input for Postcode */}
-                <Box sx={{mt: 4}}>
+                <Box sx={{ mt: 4 }}>
                     <Typography variant={isMobile ? "h6" : "h5"}>Find by Postcode</Typography>
                     <TextField
                         label="Enter postcode"
                         variant="outlined"
                         value={postcode}
                         onChange={(e) => setPostcode(e.target.value)}
-                        sx={{mt: 2, width: "100%"}}
+                        sx={{ mt: 2, width: "100%" }}
                     />
                     <Button
                         variant="contained"
                         color="primary"
                         onClick={fetchUvIndexByPostcode}
                         disabled={loading}
-                        sx={{mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem"}}
+                        sx={{ mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem" }}
                     >
                         Get UV Index by Postcode
                     </Button>
                 </Box>
 
                 {/* Find by Location */}
-                <Box sx={{mt: 4}}>
+                <Box sx={{ mt: 4 }}>
                     <Typography variant={isMobile ? "h6" : "h5"}>Find by Current Location</Typography>
                     <Button
                         variant="contained"
                         color="secondary"
                         onClick={fetchUvIndexByLocation}
                         disabled={loading}
-                        sx={{mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem"}}
+                        sx={{ mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem" }}
                     >
                         Get UV Index by My Location
                     </Button>
                 </Box>
-                <TextField label="Enter Email" value={email} onChange={(e) => setEmail(e.target.value)}
-                           sx={{mt: 2, width: "100%"}}/>
-                <Button variant="contained" color="secondary" onClick={startReminder} sx={{mt: 2, width: "100%"}}>Start
-                    Reminder</Button>
-            </Container>
 
+            </Container>
         </ThemeProvider>
     );
 }
+
 export default App;
