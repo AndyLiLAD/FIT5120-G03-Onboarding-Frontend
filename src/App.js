@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
-import { TextField, Button, Typography, Container, Snackbar, Alert, Box, CircularProgress, useMediaQuery } from "@mui/material";
+import {
+    TextField, Button, Typography, Container, Alert,
+    Box, CircularProgress, useMediaQuery, IconButton, Grid
+} from "@mui/material";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
+import { Pause, PlayArrow, Replay } from "@mui/icons-material";
 
-// Define a responsive Material UI theme
+// Local images (place in public/images folder)
+const uvChart = '/images/state-uvi-chart.png';
+const cancerChart = '/images/skin-cancer-chart.jpg';
+
 const theme = createTheme({
     palette: {
         primary: { main: "#1976D2" },
@@ -10,51 +17,74 @@ const theme = createTheme({
     },
 });
 
-// Function to determine UV Index color
 const getUvColor = (uvIndex) => {
-    if (uvIndex < 3) return "#2E7D32";  // Green (Low)
-    if (uvIndex < 6) return "#FFEB3B";  // Yellow (Moderate)
-    if (uvIndex < 8) return "#FF9800";  // Orange (High)
-    if (uvIndex < 11) return "#F44336"; // Red (Very High)
-    return "#9C27B0";  // Purple (Extreme)
+    if (uvIndex === 0) return "#616161";
+    if (uvIndex < 3) return "#2E7D32";
+    if (uvIndex < 6) return "#FFEB3B";
+    if (uvIndex < 8) return "#FF9800";
+    if (uvIndex < 11) return "#F44336";
+    return "#9C27B0";
 };
 
-// Function to determine sunscreen reapplication time
-const getSunscreenTime = (uvIndex) => {
-    if (uvIndex === 0) return "No need to use sunscreen.";
-    if (uvIndex < 3) return "Reapply every 2 hours.";
-    if (uvIndex < 6) return "Reapply every 1.5 hours.";
-    if (uvIndex < 8) return "Reapply every 1 hour.";
-    if (uvIndex < 11) return "Reapply every 45 minutes.";
-    return "Reapply every 30 minutes.";
+const getRecommendedTime = (uvIndex, sunsetSoon) => {
+    if (uvIndex === 0 || sunsetSoon) return 0;
+    if (uvIndex < 3) return 120 * 60;  // 2 hours in seconds
+    if (uvIndex < 6) return 90 * 60;
+    if (uvIndex < 8) return 60 * 60;
+    if (uvIndex < 11) return 45 * 60;
+    return 30 * 60;
 };
 
-function App() {
+function BrightAware() {
     const [postcode, setPostcode] = useState("");
     const [uvIndex, setUvIndex] = useState(null);
-    const [email, setEmail] = useState("");
-    const [secondsLeft, setSecondsLeft] = useState(null);
+    const [sunsetSoon, setSunsetSoon] = useState(false);
+    const [secondsLeft, setSecondsLeft] = useState(0);
+    const [isActive, setIsActive] = useState(false);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [snackbarOpen, setSnackbarOpen] = useState(false);
-    const [snackbarMessage, setSnackbarMessage] = useState("");
-
-    // Check if user is on a mobile screen
+    const [customHours, setCustomHours] = useState("");
+    const [customMinutes, setCustomMinutes] = useState("");
+    const [debugUvi, setDebugUvi] = useState(null);
     const isMobile = useMediaQuery("(max-width:600px)");
 
     useEffect(() => {
         let interval;
-        if (secondsLeft > 0) {
+        if (isActive && secondsLeft > 0) {
             interval = setInterval(() => {
-                setSecondsLeft((prev) => prev - 1);
+                setSecondsLeft(prev => prev - 1);
             }, 1000);
-        } else {
-            clearInterval(interval);
         }
         return () => clearInterval(interval);
-    }, [secondsLeft]);
+    }, [isActive, secondsLeft]);
 
-    // Fetch UV index using user's location
+    const formatTime = (seconds) => {
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleSetCustomTime = () => {
+        const hours = parseInt(customHours) || 0;
+        const minutes = parseInt(customMinutes) || 0;
+        const totalSeconds = (hours * 3600) + (minutes * 60);
+
+        if (totalSeconds > 0) {
+            setSecondsLeft(totalSeconds);
+            setIsActive(true);
+        }
+        setCustomHours("");
+        setCustomMinutes("");
+    };
+
+    // Debug mode for testing
+    const simulateUvi = () => {
+        const uvi = parseFloat(debugUvi) || 0;
+        setUvIndex(uvi);
+        setSunsetSoon(Math.random() < 0.5); // Random sunset status for testing
+    };
+// Fetch UV index using user's location
     const fetchUvIndexByLocation = () => {
         setError("");
         setLoading(true);
@@ -113,83 +143,158 @@ function App() {
             .catch(() => setError("Failed to fetch UV index"))
             .finally(() => setLoading(false));
     };
-
-
     return (
         <ThemeProvider theme={theme}>
-            <Container
-                maxWidth="sm"
-                sx={{ mt: isMobile ? 3 : 5, textAlign: "center", padding: isMobile ? 2 : 4 }}
-            >
-                <Typography variant={isMobile ? "h5" : "h4"} gutterBottom>
-                    🌞 UV Index Finder
+            <Container maxWidth="md" sx={{ mt: 4, textAlign: "center" }}>
+                <Typography variant="h3" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    🌞 BrightAware
                 </Typography>
 
-                {/* UV Index Display */}
                 {uvIndex !== null && (
-                    <Box
-                        sx={{
-                            backgroundColor: getUvColor(uvIndex),
-                            color: "#fff",
-                            padding: isMobile ? 1.5 : 2,
-                            borderRadius: 2,
-                            mt: 2,
-                            width: isMobile ? "90%" : "50%",
-                            margin: "auto",
-                            fontSize: isMobile ? "1.2rem" : "1.5rem",
-                        }}
-                    >
-                        <Typography variant="h6">UV Index: {uvIndex}</Typography>
-                        <Typography variant="body1" sx={{ mt: 1 }}>
-                            {getSunscreenTime(uvIndex)}
+                    <Box sx={{
+                        bgcolor: getUvColor(uvIndex),
+                        color: "white",
+                        p: 2,
+                        borderRadius: 2,
+                        mb: 3
+                    }}>
+                        <Typography variant="h5">
+                            Current UV Index: {uvIndex}
                         </Typography>
+                        {(uvIndex === 0 || sunsetSoon) ? (
+                            <Typography variant="h6" sx={{ mt: 1 }}>
+                                ☁️ No sunscreen needed
+                            </Typography>
+                        ) : (
+                            <Typography>
+                                Recommended reapplication: every {getRecommendedTime(uvIndex, false)/60} minutes
+                            </Typography>
+                        )}
                     </Box>
                 )}
 
-                {/* Error Message */}
-                {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+                {/* Timer Section */}
+                <Box sx={{ mb: 4 }}>
+                    <Typography variant="h2" component="div" sx={{ fontFamily: 'monospace' }}>
+                        {formatTime(secondsLeft)}
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                        <IconButton
+                            onClick={() => setIsActive(!isActive)}
+                            color="primary"
+                            disabled={uvIndex === 0 || sunsetSoon}
+                        >
+                            {isActive ? <Pause fontSize="large" /> : <PlayArrow fontSize="large" />}
+                        </IconButton>
+                        <IconButton
+                            onClick={() => {
+                                setSecondsLeft(getRecommendedTime(uvIndex || 0, sunsetSoon));
+                                setIsActive(true);
+                            }}
+                            color="secondary"
+                            disabled={uvIndex === 0 || sunsetSoon}
+                        >
+                            <Replay fontSize="large" />
+                        </IconButton>
+                    </Box>
+                </Box>
 
-                {/* Loading Indicator */}
-                {loading && <CircularProgress sx={{ mt: 2 }} />}
+                {/* Custom Time Input */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={6}>
+                        <TextField
+                            label="Hours"
+                            type="number"
+                            value={customHours}
+                            onChange={(e) => setCustomHours(e.target.value)}
+                            fullWidth
+                        />
+                    </Grid>
+                    <Grid item xs={6}>
+                        <TextField
+                            label="Minutes"
+                            type="number"
+                            value={customMinutes}
+                            onChange={(e) => setCustomMinutes(e.target.value)}
+                            fullWidth
+                        />
+                    </Grid>
+                    <Grid item xs={12}>
+                        <Button
+                            variant="contained"
+                            onClick={handleSetCustomTime}
+                            disabled={!customHours && !customMinutes}
+                            fullWidth
+                        >
+                            Set Custom Time
+                        </Button>
+                    </Grid>
+                </Grid>
 
-                {/* Input for Postcode */}
-                <Box sx={{ mt: 4 }}>
-                    <Typography variant={isMobile ? "h6" : "h5"}>Find by Postcode</Typography>
+                {/* Information Charts */}
+                <Grid container spacing={3} sx={{ mt: 4 }}>
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom>
+                            Australian UV Index Levels
+                        </Typography>
+                        <img
+                            src={uvChart}
+                            alt="UV Index Chart"
+                            style={{ width: '100%', borderRadius: '8px' }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom>
+                            Skin Cancer Mortality Rates
+                        </Typography>
+                        <img
+                            src={cancerChart}
+                            alt="Cancer Mortality Chart"
+                            style={{ width: '100%', borderRadius: '8px' }}
+                        />
+                    </Grid>
+                </Grid>
+
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: isMobile ? 'column' : 'row' }}>
                     <TextField
-                        label="Enter postcode"
-                        variant="outlined"
+                        label="Postcode lookup"
                         value={postcode}
                         onChange={(e) => setPostcode(e.target.value)}
-                        sx={{ mt: 2, width: "100%" }}
+                        sx={{ flexGrow: 1 }}
                     />
                     <Button
                         variant="contained"
-                        color="primary"
                         onClick={fetchUvIndexByPostcode}
                         disabled={loading}
-                        sx={{ mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem" }}
                     >
-                        Get UV Index by Postcode
+                        Get by Postcode
                     </Button>
-                </Box>
-
-                {/* Find by Location */}
-                <Box sx={{ mt: 4 }}>
-                    <Typography variant={isMobile ? "h6" : "h5"}>Find by Current Location</Typography>
                     <Button
-                        variant="contained"
-                        color="secondary"
+                        variant="outlined"
                         onClick={fetchUvIndexByLocation}
                         disabled={loading}
-                        sx={{ mt: 2, width: "100%", fontSize: isMobile ? "0.9rem" : "1rem" }}
                     >
-                        Get UV Index by My Location
+                        Use My Location
                     </Button>
                 </Box>
-
+                {/* Debug Panel */}
+                <Box sx={{ mb: 4, p: 2, border: '1px dashed grey' }}>
+                    <Typography variant="h6">Developer Test Mode</Typography>
+                    <TextField
+                        label="Simulate UV Index"
+                        type="number"
+                        value={debugUvi}
+                        onChange={(e) => setDebugUvi(e.target.value)}
+                        sx={{ mr: 2, width: 120 }}
+                    />
+                    <Button variant="outlined" onClick={simulateUvi}>
+                        Test UV Display
+                    </Button>
+                </Box>
             </Container>
+
         </ThemeProvider>
     );
 }
 
-export default App;
+export default BrightAware;
