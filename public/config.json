@@ -1,0 +1,8 @@
+{
+  "images": {
+    "logo1": "/images/logo1.png",
+    "logo2": "/images/logo2.png",
+    "uvChart": "/images/state-uvi-chart.png",
+    "cancerChart": "/images/skin-cancer-chart.jpg"
+  }
+}
